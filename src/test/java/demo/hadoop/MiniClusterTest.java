@@ -20,6 +20,8 @@ import org.junit.Test;
 import java.io.File;
 import java.io.IOException;
 
+import static org.junit.Assert.assertTrue;
+
 public class MiniClusterTest {
     private Configuration configuration = new Configuration();
     private MiniDFSCluster dfsCluster;
@@ -28,6 +30,8 @@ public class MiniClusterTest {
     @Before
     public void setUp() throws IOException {
         configuration.addResource(new Path(new File("conf.xml").getAbsolutePath().toString()));
+        startHDFS();
+        startYARN();
     }
 
     @After
@@ -38,6 +42,7 @@ public class MiniClusterTest {
     }
 
     private void startHDFS() throws IOException {
+        System.clearProperty(MiniDFSCluster.PROP_TEST_BUILD_DATA);
         File tempDir = Files.createTempDir();
         configuration.set(MiniDFSCluster.HDFS_MINIDFS_BASEDIR, tempDir.getAbsolutePath());
         dfsCluster = new MiniDFSCluster.Builder(configuration).numDataNodes(3).nameNodePort(9000).build();
@@ -47,14 +52,6 @@ public class MiniClusterTest {
         yarnCluster = new MiniYARNCluster("test", 1, 1, 1);
         yarnCluster.init(configuration);
         yarnCluster.start();
-    }
-
-    @Test
-    public void testStartHDFS() throws InterruptedException, IOException {
-        startHDFS();
-        while (true) {
-            Thread.sleep(1000);
-        }
     }
 
     @Test
@@ -68,12 +65,13 @@ public class MiniClusterTest {
         job.setReducerClass(CountReducer.class);
         job.setOutputKeyClass(Text.class);
         job.setOutputValueClass(IntWritable.class);
-
         FileInputFormat.addInputPath(job, in);
         FileOutputFormat.setOutputPath(job, out);
         job.waitForCompletion(true);
-
+        assertTrue(job.isSuccessful());
         printOutput(out);
+
+        Thread.sleep(60 * 1000L);
     }
 
     private void copyFileToHDFS(Path in) throws IOException {
