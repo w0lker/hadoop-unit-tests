@@ -1,0 +1,3 @@
+* Hadoop 单元测试示例 *
+
+提供基于rmunit和minicluster的两个实现。
