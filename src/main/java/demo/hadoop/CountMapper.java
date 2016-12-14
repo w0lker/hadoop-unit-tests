@@ -14,11 +14,9 @@ public class CountMapper extends Mapper<LongWritable, Text, Text, IntWritable> {
             throws java.io.IOException, InterruptedException {
         String line = value.toString();
         if (StringUtils.isNotBlank(line)) {
-            System.out.println("======" + line);
             StringTokenizer tokenizer = new StringTokenizer(line, " ");
             while (tokenizer.hasMoreTokens()) {
                 String token = tokenizer.nextToken();
-                System.out.println(">>>>> " + token);
                 context.write(new Text(token), new IntWritable(1));
             }
         }
