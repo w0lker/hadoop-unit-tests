@@ -23,15 +23,17 @@ import java.io.IOException;
 import static org.junit.Assert.assertTrue;
 
 public class MiniClusterTest {
-    private Configuration configuration = new Configuration();
+    private Configuration configuration;
     private MiniDFSCluster dfsCluster;
     private MiniYARNCluster yarnCluster;
+    private FileSystem fs;
 
     @Before
     public void setUp() throws IOException {
-        configuration.addResource(new Path(new File("conf.xml").getAbsolutePath().toString()));
+        configuration = new Configuration();
         startHDFS();
         startYARN();
+        fs = FileSystem.get(configuration);
     }
 
     @After
@@ -41,8 +43,26 @@ public class MiniClusterTest {
         }
     }
 
+    @Test
+    public void testStartJob() throws InterruptedException, IOException, ClassNotFoundException {
+        Path hdfsIn = new Path("/hello");
+        Path hdfsOut = new Path("/out");
+        copyFileToHDFS(new Path(new File("data/wordcount").getAbsolutePath()), hdfsIn);
+
+        Job job = Job.getInstance(configuration);
+        job.setMapperClass(CountMapper.class);
+        job.setReducerClass(CountReducer.class);
+        job.setOutputKeyClass(Text.class);
+        job.setOutputValueClass(IntWritable.class);
+        FileInputFormat.addInputPath(job, hdfsIn);
+        FileOutputFormat.setOutputPath(job, hdfsOut);
+        job.waitForCompletion(true);
+        assertTrue(job.isSuccessful());
+
+        printOutputResult(hdfsOut);
+    }
+
     private void startHDFS() throws IOException {
-        System.clearProperty(MiniDFSCluster.PROP_TEST_BUILD_DATA);
         File tempDir = Files.createTempDir();
         configuration.set(MiniDFSCluster.HDFS_MINIDFS_BASEDIR, tempDir.getAbsolutePath());
         dfsCluster = new MiniDFSCluster.Builder(configuration).numDataNodes(3).nameNodePort(9000).build();
@@ -54,39 +74,12 @@ public class MiniClusterTest {
         yarnCluster.start();
     }
 
-    @Test
-    public void testStartJob() throws InterruptedException, IOException, ClassNotFoundException {
-        Path in = new Path("/hello");
-        Path out = new Path("/out");
-        copyFileToHDFS(in);
-
-        Job job = Job.getInstance(configuration);
-        job.setMapperClass(CountMapper.class);
-        job.setReducerClass(CountReducer.class);
-        job.setOutputKeyClass(Text.class);
-        job.setOutputValueClass(IntWritable.class);
-        FileInputFormat.addInputPath(job, in);
-        FileOutputFormat.setOutputPath(job, out);
-        job.waitForCompletion(true);
-        assertTrue(job.isSuccessful());
-        printOutput(out);
-
-        Thread.sleep(60 * 1000L);
+    private void copyFileToHDFS(Path localFile, Path hdfsIn) throws IOException {
+        fs.copyFromLocalFile(false, true, localFile, hdfsIn);
     }
 
-    private void copyFileToHDFS(Path in) throws IOException {
-        FileSystem fs = FileSystem.get(configuration);
-        fs.copyFromLocalFile(
-                false,
-                true,
-                new Path(new File("data/wordcount").getAbsolutePath()),
-                in
-        );
-    }
-
-    private void printOutput(Path out) throws IOException {
-        FileSystem fs = FileSystem.get(configuration);
-        FSDataInputStream inputStream = fs.open(new Path(out, "part-r-00000"));
+    private void printOutputResult(Path hdfsOut) throws IOException {
+        FSDataInputStream inputStream = fs.open(new Path(hdfsOut, "part-r-00000"));
         System.out.println("Output:");
         System.out.println(IOUtils.toString(inputStream));
     }

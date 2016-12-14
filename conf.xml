@@ -1,6 +1,0 @@
-<configuration>
-    <property>
-        <name>dfs.namenode.http-address</name>
-        <value>50070</value>
-    </property>
-</configuration>
